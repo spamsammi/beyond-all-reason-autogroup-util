@@ -1,5 +1,15 @@
 {
-    1: [
-        "<key>"
-    ],
+    3: {
+        "description": "Main Army"
+        "units" [
+            "<key (OR name IF the unit-file is provided)>"
+        ]
+    },
+    4: {
+        "description": "AA (Fighters + Air Defense)",
+        "units": [
+            "armfig",
+            "Highwind",
+        ]
+    }
 }
