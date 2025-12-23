@@ -1,2 +1,3 @@
-/dist
-input.json
+dist/
+input/input.json
+input/cache/
