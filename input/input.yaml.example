@@ -1,0 +1,11 @@
+"3":
+  description: "Main Army"
+  units:
+    # Can either be units key or units name
+    - "armflea"
+    # If giving units name, a unit-file must be provided (default -u)
+    # NOTE: Some unit names have multiple keys, if this happens, you must use the key
+    - "Pawn"
+"4":
+  description: "Resurrection Units"
+  # Without "units", only the grouping comment will be generated

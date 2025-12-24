@@ -69,8 +69,11 @@ def get_unit_info(unit: str, unit_json_data) -> tuple:
             return unit, unit_name, unit_descriptions.get(unit, "")
         else:
             # unit = name?; attempt to find the key by name given
-            unit_key = next((k for k, v in unit_names.items() if v == unit), None)
-            if unit_key:
+            unit_keys = [k for k, v in unit_names.items() if v == unit]
+            if len(unit_keys) > 1:
+                raise ValueError(f"'{unit}' has more than one name that matches a key; provide the unit key instead for this entry (keys matched: {unit_keys})")
+            elif unit_keys:
+                unit_key = unit_keys[0]
                 return unit_key, unit, unit_descriptions.get(unit_key, "")
             else:
                 raise ValueError(f"'{unit}' does not match any unit keys; please check the unit file to see what names are available")
@@ -91,9 +94,10 @@ def handle_lua_output_data(input_yaml_data: dict, unit_json_data: dict) -> dict:
     ]]"""))
     
     for group, group_data in input_yaml_data.items():
-        lua_output_data.append(f"\t-- {group}. {group_data['description']}")
         group_table = []
         units = group_data.get("units", [])
+        if units:
+            lua_output_data.append(f"\t-- {group}. {group_data['description']}")
         for unit in units:
             unit_key, unit_name, unit_description = get_unit_info(unit, unit_json_data)
             # Add the -- lua comment if unit_name is found
