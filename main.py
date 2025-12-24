@@ -4,26 +4,14 @@ import json
 import os
 from urllib.parse import urlparse
 from pathlib import Path
-from typing import TextIO
+from textwrap import dedent
+from tabulate import tabulate
 
 def is_file(path: str) -> bool:
     return Path(path).is_file()
 
 def is_url(url: str) -> bool:
     return urlparse(url).scheme in ("http", "https", "ftp")
-
-def get_unit_faction(unit: str) -> str:
-    faction_map = {
-        "arm": "Armada",
-        "cor": "Cortex",
-        "leg": "Legion"
-    }   
-
-    fac = unit[:3]
-    if fac in faction_map.keys():
-        return faction_map.get(fac)
-    else:
-        raise ValueError(f"'{unit}' belongs to unknown faction; known are {faction_map.values()}")
 
 def handle_unit_file(unit_file_path: str, dist_dir: str) -> dict:
     try:
@@ -53,25 +41,42 @@ def handle_unit_file(unit_file_path: str, dist_dir: str) -> dict:
         return None
 
 def handle_lua_output_data(input_json_data: dict, unit_json_data: dict) -> dict:
-    lua_output_data = {}
+    lua_output_data = []
+    group_index = 1
     
     grouping_comment_block_entries = "\n".join(f"\t\t{key}. {value['description']}" for key, value in input_json_data.items())
-    lua_output_data["grouping_comment_block"] = f"""    --[[
+    lua_output_data.append(dedent(f"""\
+    --[[
         Groupings:
 {grouping_comment_block_entries}
-    ]]"""
+    ]]"""))
+    
+    for group, group_data in input_json_data.items():
+        lua_output_data.append(f"\t-- {group}. {group_data['description']}")
+        group_table = []
+        for units in group_data.get("units", []):
+            for unit in units:
+                group_table.append([
+                    f"[{group_index}]",
+                    f"= {{ \t [1] = \"{unit}\", [2] = {group}, }}",
+                ])
+        if group_table:
+            lua_output_data.append(tabulate(group_table, tablefmt="simple"))
 
     return lua_output_data
 
-def generate_lua_autogroup_output(preset: int, lua_output_data: dict) -> str:
-    return f"""[{preset}] = {{
-{lua_output_data["grouping_comment_block"]}
-}}"""
+def handle_lua_output_file(output_file_path: str, preset: int, lua_output_data: list) -> None:
+    joined_lua = "\n".join(lua_output_data)
+    with open(output_file_path, "w") as f:
+        f.write(dedent(f"""\
+[{preset}] = {{
+{joined_lua}
+}}"""))
 
 def main():
     parser = argparse.ArgumentParser(description="Beyond All Reason Unit Autogroup Generator", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-i", "--input-json", required=False, default="input/input.json", help="Input json file path")
-    parser.add_argument("-o", "--output-lua", required=False, default="dist/output.json", help="Output lua segment file path")
+    parser.add_argument("-o", "--output-lua", required=False, default="dist/output.lua", help="Output lua segment file path")
     parser.add_argument("-u", "--unit-json-file", required=False, nargs='?', const="https://raw.githubusercontent.com/beyond-all-reason/Beyond-All-Reason/master/language/en/units.json", help="Unit json file path; can either be a physical file or URL to determine unit names and descriptions")
     parser.add_argument("-p", "--preset", required=False, type=int, default=1, help="Swaps out the preset number for the lua segment generated")
     args = parser.parse_args()
@@ -84,9 +89,7 @@ def main():
     
     unit_json_data = handle_unit_file(args.unit_json_file, dist_dir)
     lua_output_data = handle_lua_output_data(input_json_data, unit_json_data)
-
-    with open("dist/output.lua", "w") as f:
-        f.write(generate_lua_autogroup_output(args.preset, lua_output_data))
+    handle_lua_output_file(args.output_lua, args.preset, lua_output_data)
 
 if __name__ == "__main__":
     main()
