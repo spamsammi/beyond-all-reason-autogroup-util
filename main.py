@@ -20,18 +20,19 @@ def handle_unit_file(unit_file_path: str, dist_dir: str) -> dict:
         json_data = None
         if not unit_file_path:
             print("Unit file not provided\nskipping...")
+            return None
         if is_file(unit_file_path):
             with open(unit_file_path, "r") as f:
                 json_data = json.load(f)
         elif is_url(unit_file_path):
             # Used to prevent users from spamming whatever endpoint with requests on multiple runs
             session = requests_cache.CachedSession(f'{os.path.join(cache_dir, "bar-autogroup-util")}', expire_after=300)
-            # Saves the file also for manual viewing in the cache directory
-            with open(os.path.join(cache_dir, "unit_file.json"), 'w') as f:
-                f.write(json.dumps(json_data, indent=4))
             response = session.get(unit_file_path)
             response.raise_for_status()
             json_data = response.json()
+            # Saves the file also for manual viewing in the cache directory
+            with open(os.path.join(cache_dir, "unit_file.json"), 'w') as f:
+                f.write(json.dumps(json_data, indent=4))
         else:
             raise ValueError("Invalid unit file or URL")
         return json_data
