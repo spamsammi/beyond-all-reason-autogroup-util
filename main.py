@@ -25,12 +25,11 @@ def get_unit_faction(unit: str) -> str:
     else:
         raise ValueError(f"'{unit}' belongs to unknown faction; known are {faction_map.values()}")
 
-def handle_unit_file(unit_file_path: str, input_file_dir: str) -> dict:
+def handle_unit_file(unit_file_path: str, dist_dir: str) -> dict:
     try:
-        cache_dir = os.path.join(input_file_dir, "cache")
+        cache_dir = os.path.join(dist_dir, "cache")
         os.makedirs(cache_dir, exist_ok=True)
         json_data = None
-
         if not unit_file_path:
             print("Unit file not provided\nskipping...")
         if is_file(unit_file_path):
@@ -54,17 +53,20 @@ def handle_unit_file(unit_file_path: str, input_file_dir: str) -> dict:
         return None
 
 def handle_lua_output_data(input_json_data: dict, unit_json_data: dict) -> dict:
-    # Indents and new lines in the multi-line strings is intentional
     lua_output_data = {}
     
-    grouping_comment_block_entries = "\n".join(f"\t{key}. {value['description']}" for key, value in input_json_data.items())
-    lua_output_data["grouping_comment_block"] = f"""
-    --[[
+    grouping_comment_block_entries = "\n".join(f"\t\t{key}. {value['description']}" for key, value in input_json_data.items())
+    lua_output_data["grouping_comment_block"] = f"""    --[[
         Groupings:
 {grouping_comment_block_entries}
     ]]"""
 
     return lua_output_data
+
+def generate_lua_autogroup_output(preset: int, lua_output_data: dict) -> str:
+    return f"""[{preset}] = {{
+{lua_output_data["grouping_comment_block"]}
+}}"""
 
 def main():
     parser = argparse.ArgumentParser(description="Beyond All Reason Unit Autogroup Generator", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -74,15 +76,17 @@ def main():
     parser.add_argument("-p", "--preset", required=False, type=int, default=1, help="Swaps out the preset number for the lua segment generated")
     args = parser.parse_args()
 
-    input_json_data = None
+    dist_dir = os.path.join(os.path.dirname(__file__), "dist")
+    if not os.path.exists(dist_dir):
+        os.makedirs(dist_dir)
     with open(args.input_json, "r") as f:
         input_json_data = json.load(f)
     
-    unit_json_data = handle_unit_file(args.unit_json_file, os.path.dirname(args.input_json))
+    unit_json_data = handle_unit_file(args.unit_json_file, dist_dir)
     lua_output_data = handle_lua_output_data(input_json_data, unit_json_data)
 
-    for key, val in lua_output_data.items():
-        print(f"{key}:\n{val}")
+    with open("dist/output.lua", "w") as f:
+        f.write(generate_lua_autogroup_output(args.preset, lua_output_data))
 
 if __name__ == "__main__":
     main()
