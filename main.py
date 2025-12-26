@@ -25,6 +25,30 @@ def is_unit_key(unit: str) -> str:
         return True
     else:
         raise False
+    
+def get_unit_info(unit: str, unit_json_data) -> tuple:
+    if unit_json_data:
+        unit_names = unit_json_data.get("names")
+        unit_descriptions = unit_json_data.get("descriptions")
+        # Determine if the unit provided is the units key, or actual name
+        unit_name = unit_names.get(unit)
+        if unit_name:
+            # unit = key
+            return unit, unit_name, unit_descriptions.get(unit, "")
+        else:
+            # unit = name?; attempt to find the key by name given
+            unit_keys = [k for k, v in unit_names.items() if v == unit]
+            if len(unit_keys) > 1:
+                raise ValueError(f"'{unit}' has more than one name that matches a key; provide the unit key instead for this entry (keys matched: {unit_keys})")
+            elif unit_keys:
+                unit_key = unit_keys[0]
+                return unit_key, unit, unit_descriptions.get(unit_key, "")
+            else:
+                raise ValueError(f"'{unit}' does not match any unit keys; please check the unit file to see what names are available")
+    elif(is_unit_key(unit)):
+        return unit, "", ""
+    else:
+        raise ValueError(f"'{unit}' is not a key; must provide a unit file with -u if providing an actual name of the unit")
 
 def handle_unit_file(unit_file_path: str, dist_dir: str) -> dict:
     try:
@@ -58,30 +82,6 @@ def handle_unit_file(unit_file_path: str, dist_dir: str) -> dict:
         print(f"Unit file failed to be parsed\n{e};\nskipping...")
         return None
 
-def get_unit_info(unit: str, unit_json_data) -> tuple:
-    if unit_json_data:
-        unit_names = unit_json_data.get("names")
-        unit_descriptions = unit_json_data.get("descriptions")
-        # Determine if the unit provided is the units key, or actual name
-        unit_name = unit_names.get(unit)
-        if unit_name:
-            # unit = key
-            return unit, unit_name, unit_descriptions.get(unit, "")
-        else:
-            # unit = name?; attempt to find the key by name given
-            unit_keys = [k for k, v in unit_names.items() if v == unit]
-            if len(unit_keys) > 1:
-                raise ValueError(f"'{unit}' has more than one name that matches a key; provide the unit key instead for this entry (keys matched: {unit_keys})")
-            elif unit_keys:
-                unit_key = unit_keys[0]
-                return unit_key, unit, unit_descriptions.get(unit_key, "")
-            else:
-                raise ValueError(f"'{unit}' does not match any unit keys; please check the unit file to see what names are available")
-    elif(is_unit_key(unit)):
-        return unit, "", ""
-    else:
-        raise ValueError(f"'{unit}' is not a key; must provide a unit file with -u if providing an actual name of the unit")
-
 def handle_lua_output_data(input_yaml_data: dict, unit_json_data: dict) -> dict:
     lua_output_data = []
     group_index = 1
@@ -104,7 +104,7 @@ def handle_lua_output_data(input_yaml_data: dict, unit_json_data: dict) -> dict:
             unit_name = f"-- {unit_name}" if unit_name else unit_name
             group_table.append([
                 f"[{group_index}]",
-                f"= {{ [1] = \"{unit_key}\", [2] = {group}, }}",
+                f"= {{ [1] = \"{unit_key}\", [2] = {group}, }},",
                 unit_name,
                 unit_description
             ])
@@ -122,7 +122,7 @@ def handle_lua_output_file(output_file_path: str, preset: int, lua_output_data: 
         f.write(dedent(f"""\
 [{preset}] = {{
 {joined_lua}
-}}"""))
+}},"""))
 
 def main():
     parser = argparse.ArgumentParser(description="Beyond All Reason Unit Autogroup Generator", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
